@@ -1,33 +1,68 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeConfig, DEFAULT_CONFIG } from '../src/config.js';
+import { normalizeConfig, parseCoordinate, parseStationId } from '../src/config.js';
+import { resolvePlaces } from '../src/places.js';
 
-test('normalizeConfig returns the defaults when called with no argument', () => {
-  assert.deepEqual(normalizeConfig(), DEFAULT_CONFIG);
+test('coordinates typed by hand: comma, spaces, sign, range', () => {
+  assert.equal(parseCoordinate('55,6761', 90), 55.6761);
+  assert.equal(parseCoordinate(' 12.5683 ', 180), 12.5683);
+  assert.equal(parseCoordinate('-51.72', 180), -51.72);
+  assert.equal(parseCoordinate('91', 90), null);
+  assert.equal(parseCoordinate('55°40′', 90), null);
+  assert.equal(parseCoordinate('', 90), null);
 });
 
-test('normalizeConfig keeps user values over the defaults', () => {
-  const config = normalizeConfig({ latitude: 45.5, longitude: -73.6, unit: 'fahrenheit' });
-  assert.equal(config.latitude, 45.5);
-  assert.equal(config.longitude, -73.6);
-  assert.equal(config.unit, 'fahrenheit');
+test('a station id: five digits, the leading zero completed', () => {
+  assert.equal(parseStationId('06180'), '06180');
+  assert.equal(parseStationId(' 6180 '), '06180');
+  assert.equal(parseStationId('Kastrup'), '');
+  assert.equal(parseStationId(''), '');
 });
 
-test('normalizeConfig coerces numeric strings coming from a form', () => {
-  const config = normalizeConfig({ latitude: '48.8', longitude: '2.3', poll_frequency: '600' });
-  assert.equal(config.latitude, 48.8);
-  assert.equal(config.longitude, 2.3);
-  assert.equal(config.poll_frequency, 600);
-  assert.equal(typeof config.poll_frequency, 'number');
+test('the defaults, and what a form sends', () => {
+  assert.deepEqual(normalizeConfig(), {
+    use_houses: true,
+    latitude: null,
+    longitude: null,
+    coordinatesInvalid: false,
+    place_name: '',
+    station: '',
+    stationInvalid: false,
+    station_max_km: 50,
+    refresh_minutes: 10,
+    language: 'fr',
+  });
+  const config = normalizeConfig({
+    use_houses: 'false',
+    latitude: '62,0107',
+    longitude: '-6.7741',
+    place_name: '  Tórshavn ',
+    station: 'abc',
+    station_max_km: '100',
+    refresh_minutes: '7',
+    language: 'it',
+  });
+  assert.equal(config.use_houses, false);
+  assert.equal(config.latitude, 62.0107);
+  assert.equal(config.place_name, 'Tórshavn');
+  assert.equal(config.station, '');
+  assert.equal(config.stationInvalid, true);
+  assert.equal(config.station_max_km, 100);
+  assert.equal(config.refresh_minutes, 10);
+  assert.equal(config.language, 'fr');
+  assert.equal(normalizeConfig({ latitude: '62', longitude: 'x' }).coordinatesInvalid, true);
 });
 
-test('normalizeConfig falls back to the default for a missing numeric field', () => {
-  const config = normalizeConfig({ unit: 'celsius' });
-  assert.equal(config.poll_frequency, DEFAULT_CONFIG.poll_frequency);
-});
-
-test('GLADYS_PREFER_LOCAL defaults to true and only an explicit false disables it', () => {
-  assert.equal(normalizeConfig().GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: true }).GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: false }).GLADYS_PREFER_LOCAL, false);
+test('the places: located houses by selector, typed coordinates by value', () => {
+  const places = resolvePlaces(normalizeConfig({ latitude: '62,0107', longitude: '-6.7741' }), [
+    { name: 'Home', selector: 'home', latitude: 55.6761, longitude: 12.5683 },
+    { name: 'Nowhere', selector: 'nowhere', latitude: null, longitude: null },
+  ]);
+  assert.deepEqual(
+    places.map((place) => [place.platformId, place.name]),
+    [
+      ['house-home', 'DMI Home'],
+      ['point-620107_m67741', 'DMI'],
+    ],
+  );
 });

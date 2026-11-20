@@ -1,67 +1,154 @@
-# Template de démonstration
+# DMI
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+La météo officielle de l'**Institut météorologique danois (DMI)** dans
+Gladys : les mesures de la station du DMI la plus proche et la prévision
+HARMONIE du DMI pour votre lieu, au Danemark, au Groenland et aux îles Féroé.
+Données ouvertes du DMI : sans compte ni clé d'API.
 
-## Ce que vous obtenez
+> Sans lien avec le DMI. Testée contre la vraie API du DMI, pas encore dans
+> une vraie installation de Gladys : vos retours sont les bienvenus sur le
+> forum de Gladys.
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+## Ce que fait l'intégration
+
+- **Un appareil de prévision par lieu** : chaque maison localisée de Gladys,
+  et, en option, un lieu donné par ses coordonnées (maison d'été, bateau…).
+  Il donne la prévision de l'heure en cours (température, humidité, pression,
+  vent, rafales, direction, nébulosité, précipitations, temps en clair), et la
+  minimale, la maximale et les précipitations d'aujourd'hui et de demain.
+- **Un appareil par station du DMI utilisée** : les mesures de la station la
+  plus proche qui mesure température et vent, toutes les 10 minutes :
+  température, humidité, pression au niveau de la mer, vent, rafales,
+  direction, précipitations de la dernière heure, visibilité, nébulosité.
+  Seul ce que la station mesure est affiché.
+- Un **déclencheur de scène** quand la prévision annonce du gel, des rafales
+  de tempête ou une forte pluie sous 24 heures.
+- Deux **actions de scène** : lire un jour de la prévision, lire la station.
+- Un **widget de tableau de bord** : temps mesuré, prochaines 24 heures,
+  jours à venir.
+
+Différence avec les autres intégrations météo : **MET Norway** donne une
+prévision mondiale sans mesures, **MeteoAlarm** les vigilances officielles
+(dont celles du DMI). Celle-ci donne les **mesures des stations du DMI** et
+le **modèle du DMI**, le plus précis pour le Danemark.
+
+## Prérequis
+
+- Gladys Assistant 5.3.0 ou plus récent.
+- Gladys doit joindre `opendataapi.dmi.dk` en HTTPS.
+- Pour les maisons : une position dans **Paramètres → Maisons** de Gladys.
+
+## Installation
+
+1. Dans Gladys, ouvrez **Intégrations → Installer depuis GitHub** et saisissez
+   `https://github.com/guim31/gladys-dmi`, ou installez **DMI** depuis le
+   store.
+2. Ouvrez l'onglet **Configuration**, vérifiez les réglages et enregistrez.
+3. Ouvrez l'onglet **Découverte** et ajoutez les appareils voulus : un
+   appareil de prévision par lieu, un appareil par station.
 
 ## Configuration
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+- **Suivre les maisons de Gladys** : un lieu par maison localisée.
+- **Autre lieu** : latitude, longitude (degrés décimaux, la virgule est
+  acceptée) et nom. Laissez vide pour les seules maisons.
+- **Station DMI** : vide pour la station la plus proche qui mesure
+  température et vent ; ou l'identifiant d'une station du DMI, cinq chiffres
+  (`06180` pour l'aéroport de Copenhague). Les identifiants sont sur les pages
+  de données ouvertes du DMI.
+- **Station la plus proche à moins de** : 25, 50 ou 100 km. Au-delà, le lieu
+  n'a que la prévision (un lieu hors du Danemark, par exemple).
+- **Intervalle de rafraîchissement** : 10 minutes par défaut, le rythme des
+  mesures du DMI.
+- **Langue des noms et des textes** : noms des fonctionnalités des nouveaux
+  appareils, temps en clair, phrases des actions de scène. Français par
+  défaut.
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+## Les appareils
 
-## Actions
+L'**appareil de prévision** d'un lieu contient : température, humidité,
+pression, vitesse du vent, rafales, direction du vent, nébulosité,
+précipitations de l'heure (mm), le temps en clair (dégagé, partiellement
+nuageux, nuageux, pluie faible, pluie, neige), la minimale, la maximale et
+les précipitations d'aujourd'hui (depuis le début du run du modèle, tôt le matin) et de demain.
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+L'**appareil station** contient ce que la station mesure, parmi :
+température, humidité, pression au niveau de la mer, vitesse du vent,
+rafales (vent maximal sur 3 secondes des 10 dernières minutes), direction,
+précipitations de la dernière heure, visibilité et nébulosité. Une valeur de
+plus de 3 heures n'est pas publiée (station arrêtée). Chaque fonctionnalité
+peut déclencher une scène de Gladys (« température sous 0 °C »).
 
-## Scènes
+## Widget de tableau de bord
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+Le widget **Météo DMI** montre, pour un lieu : le temps en clair, la station
+et l'heure de sa mesure, la température, le vent et l'humidité mesurés (la
+prévision quand aucune station n'est proche), une courbe de température sur
+24 heures et les trois prochains jours. Réglages : le lieu (ou une station :
+ses seules mesures), afficher la courbe, afficher les jours à venir.
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+## Déclencheur de scène : alerte de prévision du DMI
 
-## Tableau de bord
+Déclenché quand la prévision d'un lieu annonce, sous 24 heures :
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+- **gel** : une température sous 0 °C ;
+- **rafales de tempête** : des rafales de 24,5 m/s ou plus ;
+- **forte pluie** : 24 mm ou plus en 6 heures.
+
+Une alerte part quand elle apparaît dans la prévision, de nouveau un jour
+plus tard si elle dure encore, et jamais deux fois à cause d'un redémarrage. Filtres : lieu et type. Variables : `kind` (`frost`, `storm`,
+`heavy_rain`), `value` (température la plus basse en °C, rafale la plus forte
+en m/s ou plus grand cumul sur 6 heures en mm) et `starts_at`.
+
+## Actions de scène
+
+- **Lire la prévision du DMI** : pour un lieu et un jour (aujourd'hui, demain,
+  après-demain), donne minimale, maximale, précipitations, rafale maximale,
+  temps, et une phrase comme « Demain à DMI Maison : Pluie faible, 3 à 7 °C,
+  2.1 mm de précipitations, rafales jusqu'à 14 m/s. » Échoue quand la
+  prévision ne couvre pas assez la journée.
+- **Lire la station du DMI** : pour un lieu ou une station, donne
+  température, humidité, vent, rafale, précipitations de la dernière heure, le
+  nom de la station et l'heure de la mesure. Échoue sans mesure récente.
+
+## Action de configuration : vérifier le DMI
+
+**Vérifier le DMI** lit, pour chaque lieu (ajouté ou non), sa station et sa
+prévision, et affiche la réponse. En rouge quand le DMI ne répond pas.
+
+## Rafraîchissement et quotas
+
+Le DMI ne publie pas de quota pour ses données ouvertes sans clé, mais refuse
+les rafales de requêtes. L'intégration envoie une requête à la fois, à une
+seconde d'intervalle, et réessaie après une pause. À chaque rafraîchissement :
+une requête par station ajoutée ; la prévision d'un lieu ajouté au plus une
+fois par heure (le modèle tourne toutes les trois heures) ; la liste des
+stations une fois par jour. Seuls les appareils ajoutés sont lus.
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- **« Aucun lieu »** : localisez une maison dans Gladys, ou saisissez des
+  coordonnées.
+- **« Hors de la zone de prévision du DMI »** : les modèles du DMI couvrent
+  le Danemark, les îles Féroé, l'Islande, la mer du Nord et le Groenland.
+- **Pas d'appareil station** : aucune station du DMI à la distance choisie ;
+  augmentez-la, ou saisissez un identifiant de station.
+- **« Station DMI inconnue »** : identifiant erroné ou station arrêtée ;
+  laissez le champ vide.
+- Mettez `LOG_LEVEL=debug` pour le détail de chaque requête.
+
+## Limites
+
+- Le temps en clair est déduit de la nébulosité, des précipitations et de la
+  température : HARMONIE ne donne pas de pictogramme météo.
+- La prévision couvre environ 60 heures (72 au Groenland) : l'après-demain
+  est souvent partiel.
+- Les vigilances du DMI ne font pas partie des données ouvertes : utilisez
+  MeteoAlarm.
+
+## Crédits et licence
+
+Données : **Institut météorologique danois (DMI)**, données ouvertes sous
+licence
+[Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
+Intégration : Apache-2.0, par guim31.
