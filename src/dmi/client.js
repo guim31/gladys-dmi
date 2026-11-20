@@ -81,7 +81,7 @@ export function stationsUrl(now) {
  */
 export function createClient({
   fetch: fetchImpl = (...args) => globalThis.fetch(...args),
-  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms).unref?.()),
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   spacing = SPACING_MS,
 } = {}) {
   let queue = Promise.resolve();
