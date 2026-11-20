@@ -1,41 +1,142 @@
 // -----------------------------------------------------------------------------
-// Scene actions (SDK v0.14+, Gladys 5.1+).
+// Scene actions:
+// - "Read the DMI forecast": the summary of today, tomorrow or the day after
+//   for a place, as outputs the next actions use (a morning message, "if
+//   tomorrow drops below 0 °C, notify me");
+// - "Read the DMI observation": what the station of a place (or a station
+//   device) measured last.
 //
-// A scene action is an OPERATION a scene author places in a scene, with
-// parameters and a result: "identify this device", "take a snapshot", "clean
-// these rooms". Each one is declared in the manifest `scene_actions` field
-// (key, label, `fields` in the config_schema grammar, scalar `outputs`) and
-// handled here, keyed by that same `key`; index.js registers every entry with
-// `gladys.onSceneAction(key, ...)`.
-//
-// Scene TRIGGERS are the other direction ("this happened"): they are fired by
-// the device that observes the event, see src/devices/motionSensor.js.
-//
-// The rules that matter:
-//   - `fields` arrive RESOLVED: scene variables substituted, defaults applied,
-//     validated by the core; a `"source": "devices"` field is the chosen
-//     device external_id;
-//   - resolve an object of the declared `outputs` (scalars only), readable by
-//     the following actions of the scene, or `undefined` for none. Keys not
-//     declared in the manifest are dropped by the core;
-//   - throwing fails THIS action only: the scene logs it and continues. A
-//     scene action is never a condition: return an output and let the scene
-//     author gate on it;
-//   - never fire a scene event as a consequence of a received action: a scene
-//     bound to that event would loop through the integration.
+// A scene action does not receive the user's language: the texts follow the
+// `language` of the configuration. Values are metric.
 // -----------------------------------------------------------------------------
 
-import { createLogger } from '@gladysassistant/integration-sdk';
-import { signalDevice } from './devices/index.js';
+import { dailySummaries, localDate } from './dmi/forecast.js';
+import { MIN_DAY_HOURS } from './devices.js';
+import { ActionFailure } from './errors.js';
+import { CONDITIONS, TEXT, pick } from './i18n.js';
 
-const logger = createLogger({ name: 'scenes' });
+export const DAYS = ['today', 'tomorrow', 'day_after'];
 
-export const SCENE_ACTIONS = {
-  // The ack is awaited under the action's `timeout_seconds` (15 s in the
-  // manifest), counted from the moment the scene reaches the action.
-  async identify_device(gladys, { fields, config }) {
-    logger.info(`Scene action identify_device <- ${fields.device}`);
-    const signalled = await signalDevice(gladys, fields.device, config);
-    return { signalled };
+export const DAY_NAMES = {
+  en: { today: 'Today', tomorrow: 'Tomorrow', day_after: 'The day after tomorrow' },
+  fr: { today: "Aujourd'hui", tomorrow: 'Demain', day_after: 'Après-demain' },
+  de: { today: 'Heute', tomorrow: 'Morgen', day_after: 'Übermorgen' },
+  es: { today: 'Hoy', tomorrow: 'Mañana', day_after: 'Pasado mañana' },
+};
+
+export const ERRORS = {
+  unknownDevice: {
+    en: 'This DMI device is unknown: pick it again in the scene.',
+    fr: 'Cet appareil DMI est inconnu : choisissez-le de nouveau dans la scène.',
+    de: 'Dieses DMI-Gerät ist unbekannt: Wähl es in der Szene erneut aus.',
+    es: 'Este dispositivo DMI es desconocido: elíjalo de nuevo en la escena.',
+  },
+  noForecast: {
+    en: 'No DMI forecast for this day yet.',
+    fr: 'Pas encore de prévision du DMI pour ce jour.',
+    de: 'Noch keine DMI-Vorhersage für diesen Tag.',
+    es: 'Todavía no hay previsión del DMI para este día.',
+  },
+  noStation: {
+    en: 'No DMI station near this place.',
+    fr: 'Aucune station du DMI près de ce lieu.',
+    de: 'Keine DMI-Station in der Nähe dieses Orts.',
+    es: 'Ninguna estación del DMI cerca de este lugar.',
+  },
+  noObservation: {
+    en: 'The DMI station sent no recent measurement.',
+    fr: "La station du DMI n'a envoyé aucune mesure récente.",
+    de: 'Die DMI-Station hat keine aktuelle Messung gesendet.',
+    es: 'La estación del DMI no ha enviado ninguna medición reciente.',
   },
 };
+
+/** "Tomorrow in DMI Home: Light rain, 3 to 9 °C, 1.2 mm of precipitation, gusts up to 14 m/s." */
+export function summarySentence(day, dayKey, placeName, language) {
+  const text = pick(TEXT, language);
+  const parts = [
+    pick(CONDITIONS, language)[day.condition] ?? '',
+    `${Math.round(day.temperatureMin)} ${text.to} ${Math.round(day.temperatureMax)} °C`,
+    `${day.precipitation ?? 0} ${text.precipitationMm}`,
+    day.windGustMax === null ? '' : `${text.gustsUpTo} ${Math.round(day.windGustMax)} m/s`,
+  ];
+  return `${pick(DAY_NAMES, language)[dayKey]} ${text.in} ${placeName}: ${parts.filter(Boolean).join(', ')}.`;
+}
+
+const value = (observations, parameter) => {
+  const raw = observations.values[parameter]?.value;
+  return typeof raw === 'number' ? Math.round(raw * 10) / 10 : null;
+};
+
+/**
+ * @param {import('./hub.js').DmiHub} hub
+ */
+export function createSceneActions(hub) {
+  const language = () => hub.config?.language ?? 'fr';
+  return {
+    async get_forecast(fields) {
+      const place = hub.placeByDevice(fields.device);
+      if (!place) {
+        throw new ActionFailure(ERRORS.unknownDevice);
+      }
+      if (!hub.forecastOf(place)) {
+        await hub.refresh({ places: [place], force: true });
+      }
+      const dayKey = DAYS.includes(fields.day) ? fields.day : 'today';
+      const now = new Date(hub.now());
+      const target = localDate(
+        new Date(now.getTime() + DAYS.indexOf(dayKey) * 86_400_000),
+        hub.timeZone,
+      );
+      const forecast = hub.forecastOf(place);
+      const day = forecast
+        ? dailySummaries(forecast, now, hub.timeZone).find((summary) => summary.date === target)
+        : null;
+      if (
+        !day ||
+        day.temperatureMin === null ||
+        (dayKey !== 'today' && day.hours < MIN_DAY_HOURS)
+      ) {
+        throw new ActionFailure(ERRORS.noForecast);
+      }
+      const name = hub.deviceName(hub.placeId(place), place.name);
+      return {
+        temperature_min: day.temperatureMin,
+        temperature_max: day.temperatureMax,
+        precipitation: day.precipitation ?? 0,
+        wind_gust_max: day.windGustMax ?? 0,
+        condition: pick(CONDITIONS, language())[day.condition] ?? '',
+        summary: summarySentence(day, dayKey, name, language()),
+      };
+    },
+
+    async get_observation(fields) {
+      const place = hub.placeByDevice(fields.device);
+      const station = place ? hub.stationOf(place)?.station : hub.stationByDevice(fields.device);
+      if (!place && !station) {
+        throw new ActionFailure(ERRORS.unknownDevice);
+      }
+      if (!station) {
+        throw new ActionFailure(ERRORS.noStation);
+      }
+      await hub.refresh({ places: [], stations: [station] });
+      const observations = hub.observationsOf(station);
+      const temperature = observations ? value(observations, 'temp_dry') : null;
+      if (
+        temperature === null ||
+        hub.now() - observations.values.temp_dry.observed > 3 * 3_600_000
+      ) {
+        throw new ActionFailure(ERRORS.noObservation);
+      }
+      return {
+        temperature,
+        humidity: value(observations, 'humidity') ?? 0,
+        wind_speed: value(observations, 'wind_speed') ?? 0,
+        wind_gust: value(observations, 'wind_max') ?? 0,
+        precipitation: value(observations, 'precip_past1h') ?? 0,
+        station: station.name,
+        observed_at: observations.values.temp_dry.observed.toISOString(),
+      };
+    },
+  };
+}

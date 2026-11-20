@@ -32,16 +32,22 @@ pushing.
 
 ```
 index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
-src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
-src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
-gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
-.github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
+src/app.js                        registerHandlers: every SDK handler, the "check" action
+src/hub.js                        places, stations, refresh timer, states, alerts, status
+src/dmi/client.js                 DMI HTTP client: serialized, spaced, 429 retried, grid check
+src/dmi/forecast.js               HARMONIE CoverageJSON parsing, current step, daily summaries
+src/dmi/observations.js           metObs observations: latest value per parameter
+src/dmi/stations.js               metObs station list, nearest complete station
+src/devices.js                    the place (forecast) and station devices, their states
+src/alerts.js                     frost / storm / heavy rain within 24 h (scene trigger)
+src/scenes.js                     scene actions get_forecast, get_observation
+src/widgets.js                    the "weather" dashboard widget
+src/places.js, src/config.js      places from houses and coordinates; config normalization
+src/i18n.js                       every text in en, fr, de, es
+src/store.js                      /data/dmi-state.json: alerts already announced
+gladys-assistant-integration.json manifest
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys
+test/                             node --test on recorded DMI answers (test/fixtures/dmi)
 ```
 
 ## Rules
@@ -259,3 +265,20 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## DMI (propre à cette intégration)
+
+- API ouverte **sans clé** depuis décembre 2025 : `https://opendataapi.dmi.dk/v2/metObs` (stations, observations) et
+  `/v1/forecastedr` (prévisions EDR, CoverageJSON). Vérifié le 20/11/2026.
+- **429 « Server is busy »** dès quelques requêtes rapprochées (constaté à la main, sans clé) : le client sérialise,
+  espace d'une seconde et réessaie après 5 puis 15 s. Ne jamais paralléliser les requêtes.
+- **Hors grille, pas d'erreur** : `position` renvoie la maille du bord du modèle (Tokyo → 40° E, 62° N). Le client
+  compare la maille rendue au point demandé (10 km au plus), essaie DINI puis IG (Groenland), sinon `outOfArea`.
+- Unités SI : K, Pa, fraction 0–1. `total-precipitation` est **cumulé depuis le début du run** (bruit légèrement
+  négatif possible) : la pluie d'une heure est la différence avec le pas précédent.
+- Le run DINI couvre ~60 h (IG ~72 h) et arrive plusieurs heures après son heure nominale : après-demain est partiel
+  (`MIN_DAY_HOURS`).
+- La liste des stations contient une entrée par période de validité : la requête `datetime=<maintenant>` ne garde que
+  la courante. Les stations sans `temp_dry` (pluviomètres, neige) sont écartées ; la station automatique exige aussi
+  `wind_speed` (Landbohøjskolen, la plus proche de Copenhague, ne mesure que température et humidité).
+- `cloud_cover` vaut 113 pour « ciel invisible » (brouillard) : non publié. `visibility` est en mètres.

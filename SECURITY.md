@@ -30,6 +30,11 @@ Gladys before reporting a problem.
 
 In scope: the code of this repository and the Docker image it publishes.
 
+The integration needs no account and stores no secret. Under `/data` it keeps
+a single file, `dmi-state.json`: the forecast alerts already sent to the
+scenes. It only talks to Gladys and, over HTTPS, to `opendataapi.dmi.dk`; the
+requests carry the coordinates of the places, which never reach the logs.
+
 Out of scope: Gladys Assistant itself (see its
 [security policy](https://github.com/GladysAssistant/Gladys/security/policy)),
-and the third-party services and devices the integration talks to.
+and the DMI service.

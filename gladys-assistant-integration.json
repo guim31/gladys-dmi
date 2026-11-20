@@ -1,177 +1,726 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "DMI",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Official DMI weather for Denmark, Greenland and the Faroes: station data and forecasts.",
+    "fr": "Météo officielle du DMI (Danemark, Groenland, Féroé) : mesures des stations et prévisions.",
+    "de": "Offizielles DMI-Wetter für Dänemark, Grönland und Färöer: Stationsmessungen und Vorhersagen.",
+    "es": "Tiempo oficial del DMI (Dinamarca, Groenlandia, Feroe): datos de estaciones y previsiones."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
-  "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "docker_image": "ghcr.io/guim31/gladys-dmi:1.0.0",
+  "gladys_version": ">=5.3.0",
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-dmi/main/cover.png",
+  "categories": ["environment"],
+  "countries": ["DK", "GL", "FO"],
+  "transports": ["cloud"],
+  "location": true,
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "DMI weather",
+        "fr": "Météo du DMI",
+        "de": "DMI-Wetter",
+        "es": "Tiempo del DMI"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Open data of the Danish Meteorological Institute (DMI): what its nearest weather station measures, and its HARMONIE forecast. Public data, no account, no key. One device per place and one per station. Not affiliated with DMI.",
+        "fr": "Données ouvertes de l'Institut météorologique danois (DMI) : les mesures de sa station la plus proche et sa prévision HARMONIE. Données publiques, sans compte ni clé. Un appareil par lieu et un par station. Sans lien avec le DMI.",
+        "de": "Offene Daten des Dänischen Meteorologischen Instituts (DMI): die Messungen seiner nächsten Wetterstation und seine HARMONIE-Vorhersage. Öffentliche Daten, ohne Konto und Schlüssel. Ein Gerät pro Ort und eines pro Station. Nicht mit DMI verbunden.",
+        "es": "Datos abiertos del Instituto Meteorológico Danés (DMI): las mediciones de su estación más cercana y su previsión HARMONIE. Datos públicos, sin cuenta ni clave. Un dispositivo por lugar y otro por estación. Sin relación con el DMI."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://www.dmi.dk/friedata",
+          "label": {
+            "en": "DMI open data",
+            "fr": "Données ouvertes du DMI",
+            "de": "Offene Daten des DMI",
+            "es": "Datos abiertos del DMI"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "use_houses",
+      "type": "boolean",
+      "label": {
+        "en": "Follow the Gladys houses",
+        "fr": "Suivre les maisons de Gladys",
+        "de": "Häuser in Gladys verfolgen",
+        "es": "Seguir las casas de Gladys"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "description": {
+        "en": "One device per house that has a location in Gladys (Settings → Houses).",
+        "fr": "Un appareil par maison localisée dans Gladys (Paramètres → Maisons).",
+        "de": "Ein Gerät pro Haus mit Standort in Gladys (Einstellungen → Häuser).",
+        "es": "Un dispositivo por casa ubicada en Gladys (Ajustes → Casas)."
+      },
+      "required": false,
+      "default": true
+    },
+    {
+      "key": "latitude",
+      "type": "string",
+      "label": {
+        "en": "Other place: latitude",
+        "fr": "Autre lieu : latitude",
+        "de": "Anderer Ort: Breitengrad",
+        "es": "Otro lugar: latitud"
+      },
+      "description": {
+        "en": "Decimal degrees, a comma is accepted. Leave empty for the houses only.",
+        "fr": "Degrés décimaux, la virgule est acceptée. Laissez vide pour les seules maisons.",
+        "de": "Dezimalgrad, ein Komma geht auch. Leer lassen für nur die Häuser.",
+        "es": "Grados decimales, se acepta la coma. Déjelo vacío para solo las casas."
+      },
+      "placeholder": {
+        "en": "e.g. 55.6761",
+        "fr": "ex. 55.6761",
+        "de": "z. B. 55.6761",
+        "es": "p. ej. 55.6761"
+      },
+      "required": false
     },
     {
       "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "type": "string",
+      "label": {
+        "en": "Other place: longitude",
+        "fr": "Autre lieu : longitude",
+        "de": "Anderer Ort: Längengrad",
+        "es": "Otro lugar: longitud"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "description": {
+        "en": "Decimal degrees, east positive.",
+        "fr": "Degrés décimaux, positifs vers l'est.",
+        "de": "Dezimalgrad, nach Osten positiv.",
+        "es": "Grados decimales, positivos hacia el este."
+      },
+      "placeholder": {
+        "en": "e.g. 12.5683",
+        "fr": "ex. 12.5683",
+        "de": "z. B. 12.5683",
+        "es": "p. ej. 12.5683"
+      },
+      "required": false
     },
     {
-      "key": "unit",
+      "key": "place_name",
+      "type": "string",
+      "label": {
+        "en": "Other place: name",
+        "fr": "Autre lieu : nom",
+        "de": "Anderer Ort: Name",
+        "es": "Otro lugar: nombre"
+      },
+      "description": {
+        "en": "Name of its device, DMI when empty.",
+        "fr": "Nom de son appareil, DMI si vide.",
+        "de": "Name seines Geräts, DMI wenn leer.",
+        "es": "Nombre de su dispositivo, DMI si está vacío."
+      },
+      "placeholder": {
+        "en": "e.g. Summer house",
+        "fr": "ex. Maison d'été",
+        "de": "z. B. Sommerhaus",
+        "es": "p. ej. Casa de verano"
+      },
+      "required": false
+    },
+    {
+      "key": "station",
+      "type": "string",
+      "label": {
+        "en": "DMI station",
+        "fr": "Station DMI",
+        "de": "DMI-Station",
+        "es": "Estación del DMI"
+      },
+      "description": {
+        "en": "Empty: the nearest station measuring temperature and wind. Or a DMI station id (5 digits).",
+        "fr": "Vide : la station la plus proche qui mesure température et vent. Ou un identifiant de station DMI (5 chiffres).",
+        "de": "Leer: die nächste Station, die Temperatur und Wind misst. Oder eine DMI-Stationskennung (5 Ziffern).",
+        "es": "Vacío: la estación más cercana que mide temperatura y viento. O un identificador de estación del DMI (5 cifras)."
+      },
+      "placeholder": {
+        "en": "e.g. 06180",
+        "fr": "ex. 06180",
+        "de": "z. B. 06180",
+        "es": "p. ej. 06180"
+      },
+      "required": false
+    },
+    {
+      "key": "station_max_km",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Nearest station within",
+        "fr": "Station la plus proche à moins de",
+        "de": "Nächste Station im Umkreis von",
+        "es": "Estación más cercana a menos de"
+      },
+      "description": {
+        "en": "Farther than this, the place gets the forecast only.",
+        "fr": "Au-delà, le lieu n'a que la prévision.",
+        "de": "Weiter entfernt hat der Ort nur die Vorhersage.",
+        "es": "Más allá, el lugar solo tiene la previsión."
+      },
       "required": false,
-      "default": "celsius",
+      "default": "50",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "25",
+          "label": {
+            "en": "25 km",
+            "fr": "25 km",
+            "de": "25 km",
+            "es": "25 km"
+          }
+        },
+        {
+          "value": "50",
+          "label": {
+            "en": "50 km",
+            "fr": "50 km",
+            "de": "50 km",
+            "es": "50 km"
+          }
+        },
+        {
+          "value": "100",
+          "label": {
+            "en": "100 km",
+            "fr": "100 km",
+            "de": "100 km",
+            "es": "100 km"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "refresh_minutes",
+      "type": "select",
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Intervalle de rafraîchissement",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "DMI stations measure every 10 minutes; the forecast is read at most once an hour.",
+        "fr": "Les stations du DMI mesurent toutes les 10 minutes ; la prévision est lue au plus une fois par heure.",
+        "de": "DMI-Stationen messen alle 10 Minuten; die Vorhersage wird höchstens einmal pro Stunde gelesen.",
+        "es": "Las estaciones del DMI miden cada 10 minutos; la previsión se lee como mucho una vez por hora."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "10",
+      "options": [
+        {
+          "value": "10",
+          "label": {
+            "en": "10 minutes",
+            "fr": "10 minutes",
+            "de": "10 Minuten",
+            "es": "10 minutos"
+          }
+        },
+        {
+          "value": "20",
+          "label": {
+            "en": "20 minutes",
+            "fr": "20 minutes",
+            "de": "20 Minuten",
+            "es": "20 minutos"
+          }
+        },
+        {
+          "value": "30",
+          "label": {
+            "en": "30 minutes",
+            "fr": "30 minutes",
+            "de": "30 Minuten",
+            "es": "30 minutos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 hour",
+            "fr": "1 heure",
+            "de": "1 Stunde",
+            "es": "1 hora"
+          }
+        }
+      ]
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language of the names and texts",
+        "fr": "Langue des noms et des textes",
+        "de": "Sprache der Namen und Texte",
+        "es": "Idioma de los nombres y textos"
+      },
+      "description": {
+        "en": "Feature names of new devices, weather texts, scene action summary.",
+        "fr": "Noms des fonctionnalités des nouveaux appareils, textes du temps, résumé de l'action de scène.",
+        "de": "Funktionsnamen neuer Geräte, Wettertexte, Zusammenfassung der Szenenaktion.",
+        "es": "Nombres de las funciones de los nuevos dispositivos, textos del tiempo, resumen de la acción de escena."
+      },
+      "required": false,
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
+      "key": "check",
+      "label": {
+        "en": "Check DMI",
+        "fr": "Vérifier le DMI",
+        "de": "DMI prüfen",
+        "es": "Comprobar el DMI"
+      },
+      "description": {
+        "en": "Reads DMI now for every place, added or not: its station, its forecast.",
+        "fr": "Interroge le DMI maintenant pour chaque lieu, ajouté ou non : sa station, sa prévision.",
+        "de": "Fragt DMI jetzt für jeden Ort ab, hinzugefügt oder nicht: Station und Vorhersage.",
+        "es": "Consulta ahora el DMI para cada lugar, añadido o no: su estación, su previsión."
+      },
+      "timeout_seconds": 120
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "forecast_alert",
+      "label": {
+        "en": "DMI forecast alert",
+        "fr": "Alerte de prévision du DMI",
+        "de": "DMI-Vorhersagealarm",
+        "es": "Alerta de previsión del DMI"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "The DMI forecast announces frost, storm gusts (24.5 m/s) or heavy rain (24 mm in 6 h) within 24 hours.",
+        "fr": "La prévision du DMI annonce du gel, des rafales de tempête (24,5 m/s) ou une forte pluie (24 mm en 6 h) sous 24 heures.",
+        "de": "Die DMI-Vorhersage kündigt Frost, Sturmböen (24,5 m/s) oder Starkregen (24 mm in 6 h) in den nächsten 24 Stunden an.",
+        "es": "La previsión del DMI anuncia helada, rachas de tormenta (24,5 m/s) o lluvia fuerte (24 mm en 6 h) en 24 horas."
       },
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
+          "label": {
+            "en": "Place",
+            "fr": "Lieu",
+            "de": "Ort",
+            "es": "Lugar"
+          }
         },
         {
-          "key": "target",
+          "key": "kind",
           "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "label": {
+            "en": "Alerts",
+            "fr": "Alertes",
+            "de": "Alarme",
+            "es": "Alertas"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "frost",
+              "label": {
+                "en": "Frost",
+                "fr": "Gel",
+                "de": "Frost",
+                "es": "Helada"
+              }
+            },
+            {
+              "value": "storm",
+              "label": {
+                "en": "Storm gusts",
+                "fr": "Rafales de tempête",
+                "de": "Sturmböen",
+                "es": "Rachas de tormenta"
+              }
+            },
+            {
+              "value": "heavy_rain",
+              "label": {
+                "en": "Heavy rain",
+                "fr": "Forte pluie",
+                "de": "Starkregen",
+                "es": "Lluvia fuerte"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "kind",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Alert (frost, storm, heavy_rain)",
+            "fr": "Alerte (frost, storm, heavy_rain)",
+            "de": "Alarm (frost, storm, heavy_rain)",
+            "es": "Alerta (frost, storm, heavy_rain)"
+          }
+        },
+        {
+          "key": "value",
+          "type": "number",
+          "label": {
+            "en": "Value (°C, m/s or mm)",
+            "fr": "Valeur (°C, m/s ou mm)",
+            "de": "Wert (°C, m/s oder mm)",
+            "es": "Valor (°C, m/s o mm)"
+          }
+        },
+        {
+          "key": "starts_at",
+          "type": "string",
+          "label": {
+            "en": "Start (ISO date)",
+            "fr": "Début (date ISO)",
+            "de": "Beginn (ISO-Datum)",
+            "es": "Inicio (fecha ISO)"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "get_forecast",
+      "label": {
+        "en": "Read the DMI forecast",
+        "fr": "Lire la prévision du DMI",
+        "de": "DMI-Vorhersage lesen",
+        "es": "Leer la previsión del DMI"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Summary of one day for a place: temperatures, precipitation, gusts, weather.",
+        "fr": "Résumé d'une journée pour un lieu : températures, précipitations, rafales, temps.",
+        "de": "Zusammenfassung eines Tages für einen Ort: Temperaturen, Niederschlag, Böen, Wetter.",
+        "es": "Resumen de un día para un lugar: temperaturas, precipitación, rachas, tiempo."
+      },
+      "timeout_seconds": 60,
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
+          "label": {
+            "en": "Place",
+            "fr": "Lieu",
+            "de": "Ort",
+            "es": "Lugar"
+          },
+          "required": true
+        },
+        {
+          "key": "day",
+          "type": "select",
+          "label": {
+            "en": "Day",
+            "fr": "Jour",
+            "de": "Tag",
+            "es": "Día"
+          },
+          "required": true,
+          "default": "today",
+          "options": [
+            {
+              "value": "today",
+              "label": {
+                "en": "Today",
+                "fr": "Aujourd'hui",
+                "de": "Heute",
+                "es": "Hoy"
+              }
+            },
+            {
+              "value": "tomorrow",
+              "label": {
+                "en": "Tomorrow",
+                "fr": "Demain",
+                "de": "Morgen",
+                "es": "Mañana"
+              }
+            },
+            {
+              "value": "day_after",
+              "label": {
+                "en": "Day after tomorrow",
+                "fr": "Après-demain",
+                "de": "Übermorgen",
+                "es": "Pasado mañana"
+              }
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "key": "temperature_min",
+          "type": "number",
+          "label": {
+            "en": "Minimum temperature (°C)",
+            "fr": "Température minimale (°C)",
+            "de": "Tiefsttemperatur (°C)",
+            "es": "Temperatura mínima (°C)"
+          }
+        },
+        {
+          "key": "temperature_max",
+          "type": "number",
+          "label": {
+            "en": "Maximum temperature (°C)",
+            "fr": "Température maximale (°C)",
+            "de": "Höchsttemperatur (°C)",
+            "es": "Temperatura máxima (°C)"
+          }
+        },
+        {
+          "key": "precipitation",
+          "type": "number",
+          "label": {
+            "en": "Precipitation (mm)",
+            "fr": "Précipitations (mm)",
+            "de": "Niederschlag (mm)",
+            "es": "Precipitación (mm)"
+          }
+        },
+        {
+          "key": "wind_gust_max",
+          "type": "number",
+          "label": {
+            "en": "Strongest gust (m/s)",
+            "fr": "Rafale maximale (m/s)",
+            "de": "Stärkste Böe (m/s)",
+            "es": "Racha máxima (m/s)"
+          }
+        },
+        {
+          "key": "condition",
+          "type": "string",
+          "label": {
+            "en": "Weather",
+            "fr": "Temps",
+            "de": "Wetter",
+            "es": "Tiempo"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Summary sentence",
+            "fr": "Phrase de résumé",
+            "de": "Zusammenfassender Satz",
+            "es": "Frase de resumen"
+          }
+        }
+      ]
+    },
+    {
+      "key": "get_observation",
+      "label": {
+        "en": "Read the DMI station",
+        "fr": "Lire la station du DMI",
+        "de": "DMI-Station lesen",
+        "es": "Leer la estación del DMI"
+      },
+      "description": {
+        "en": "The latest measurements of the station of a place, or of a station device.",
+        "fr": "Les dernières mesures de la station d'un lieu, ou d'un appareil station.",
+        "de": "Die letzten Messungen der Station eines Orts oder eines Stationsgeräts.",
+        "es": "Las últimas mediciones de la estación de un lugar o de un dispositivo estación."
+      },
+      "timeout_seconds": 60,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Place or station",
+            "fr": "Lieu ou station",
+            "de": "Ort oder Station",
+            "es": "Lugar o estación"
+          },
           "required": true
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "temperature",
+          "type": "number",
+          "label": {
+            "en": "Temperature (°C)",
+            "fr": "Température (°C)",
+            "de": "Temperatur (°C)",
+            "es": "Temperatura (°C)"
+          }
+        },
+        {
+          "key": "humidity",
+          "type": "number",
+          "label": {
+            "en": "Humidity (%)",
+            "fr": "Humidité (%)",
+            "de": "Luftfeuchtigkeit (%)",
+            "es": "Humedad (%)"
+          }
+        },
+        {
+          "key": "wind_speed",
+          "type": "number",
+          "label": {
+            "en": "Wind speed (m/s)",
+            "fr": "Vitesse du vent (m/s)",
+            "de": "Windgeschwindigkeit (m/s)",
+            "es": "Velocidad del viento (m/s)"
+          }
+        },
+        {
+          "key": "wind_gust",
+          "type": "number",
+          "label": {
+            "en": "Gust (m/s)",
+            "fr": "Rafale (m/s)",
+            "de": "Böe (m/s)",
+            "es": "Racha (m/s)"
+          }
+        },
+        {
+          "key": "precipitation",
+          "type": "number",
+          "label": {
+            "en": "Precipitation, last hour (mm)",
+            "fr": "Précipitations, dernière heure (mm)",
+            "de": "Niederschlag, letzte Stunde (mm)",
+            "es": "Precipitación, última hora (mm)"
+          }
+        },
+        {
+          "key": "station",
+          "type": "string",
+          "label": {
+            "en": "Station",
+            "fr": "Station",
+            "de": "Station",
+            "es": "Estación"
+          }
+        },
+        {
+          "key": "observed_at",
+          "type": "string",
+          "label": {
+            "en": "Measured at (ISO date)",
+            "fr": "Mesuré à (date ISO)",
+            "de": "Gemessen um (ISO-Datum)",
+            "es": "Medido a las (fecha ISO)"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "weather",
+      "label": {
+        "en": "DMI weather",
+        "fr": "Météo DMI",
+        "de": "DMI-Wetter",
+        "es": "Tiempo DMI"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "Measured weather, next 24 hours and coming days of a place.",
+        "fr": "Temps mesuré, prochaines 24 h et jours à venir d'un lieu.",
+        "de": "Gemessenes Wetter, nächste 24 Stunden und kommende Tage eines Orts.",
+        "es": "Tiempo medido, próximas 24 horas y próximos días de un lugar."
+      },
+      "icon": "cloud",
+      "settings": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Place or station",
+            "fr": "Lieu ou station",
+            "de": "Ort oder Station",
+            "es": "Lugar o estación"
+          }
+        },
+        {
+          "key": "show_chart",
+          "type": "boolean",
+          "label": {
+            "en": "Show the 24-hour chart",
+            "fr": "Afficher la courbe des 24 h",
+            "de": "24-Stunden-Kurve anzeigen",
+            "es": "Mostrar la curva de 24 horas"
+          },
+          "default": true
+        },
+        {
+          "key": "show_days",
+          "type": "boolean",
+          "label": {
+            "en": "Show the coming days",
+            "fr": "Afficher les jours à venir",
+            "de": "Kommende Tage anzeigen",
+            "es": "Mostrar los próximos días"
+          },
+          "default": true
+        }
+      ]
     }
   ]
 }
