@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-20
+
 ### Added
 
 - First version: the official weather of the Danish Meteorological Institute
@@ -26,3 +28,6 @@ the notes of the version's GitHub Release.
 - The "DMI weather" dashboard widget.
 - The "Check DMI" configuration action.
 - Texts and documentation in English, French, German and Spanish.
+
+[Unreleased]: https://github.com/guim31/gladys-dmi/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-dmi/releases/tag/v1.0.0
