@@ -380,9 +380,10 @@ test('a frost night is announced once, across midnight; again a day later if it 
   }
   assert.equal(gladys.fake.sceneEvents.length, 2);
   // The frost leaves the forecast, then comes back: a new episode.
+  // Forced reads: the episode boundaries do not depend on the hourly timing.
   frost = false;
-  await tick(t, 60 * MINUTE);
+  await app.hub.refresh({ force: true });
   frost = true;
-  await tick(t, 60 * MINUTE);
+  await app.hub.refresh({ force: true });
   assert.equal(gladys.fake.sceneEvents.length, 3);
 });
