@@ -19,7 +19,7 @@ dropped the keys in December 2025).
   temperature and wind (or the one you choose), every 10 minutes, with only
   the features that station measures.
 - **DMI forecast alert** scene trigger: frost, storm gusts (24.5 m/s) or heavy
-  rain (24 mm in 6 h) within 24 hours, once per kind and day.
+  rain (24 mm in 6 h) within 24 hours, when it appears (a reminder a day later if it lasts).
 - **Read the DMI forecast** and **Read the DMI station** scene actions.
 - **DMI weather** dashboard widget: measured weather, 24-hour chart, three
   days (chart and days can be hidden).

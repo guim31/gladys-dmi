@@ -123,6 +123,12 @@ export function localDate(date, timeZone) {
   }).format(date);
 }
 
+/** 'YYYY-MM-DD' plus `days` calendar days (no 24-hour step: DST-proof). */
+export function addDays(date, days) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
 function localHour(date, timeZone) {
   return Number(
     new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', hourCycle: 'h23' }).format(date),
@@ -134,8 +140,8 @@ const maxOf = (values) => (known(values).length > 0 ? Math.max(...known(values))
 const minOf = (values) => (known(values).length > 0 ? Math.min(...known(values)) : null);
 
 /**
- * One summary per local day, from the hour in progress on. `hours` counts
- * the forecast hours of the day: the last day of the run is often partial.
+ * One summary per local day, from today on. `hours` counts the forecast
+ * hours of the day: the first and the last day of the run are often partial.
  * @returns {{ date: string, hours: number, temperatureMin, temperatureMax, precipitation,
  *   windSpeedMax, windGustMax, condition }[]}
  */
@@ -144,9 +150,15 @@ export function dailySummaries(forecast, now = new Date(), timeZone = undefined)
   if (!first) {
     return [];
   }
+  // Today counts every hour of the run since local midnight (the run starts
+  // a few hours before now), not only the hours to come.
+  const today = localDate(now, timeZone);
   const days = new Map();
-  for (const step of forecast.steps.slice(forecast.steps.indexOf(first))) {
+  for (const step of forecast.steps) {
     const date = localDate(step.time, timeZone);
+    if (date < today) {
+      continue;
+    }
     if (!days.has(date)) {
       days.set(date, []);
     }

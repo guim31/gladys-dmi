@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DmiError, createClient, forecastUrl } from '../src/dmi/client.js';
-import { currentStep, dailySummaries, parseForecast } from '../src/dmi/forecast.js';
+import { addDays, currentStep, dailySummaries, parseForecast } from '../src/dmi/forecast.js';
 import { parseObservations } from '../src/dmi/observations.js';
 import { parseStations, stationFor } from '../src/dmi/stations.js';
 import { forecastAlerts } from '../src/alerts.js';
@@ -50,13 +50,15 @@ test('the current step is the hour in progress; the days are local days', () => 
   assert.deepEqual(
     days.map((day) => [day.date, day.hours]),
     [
-      ['2026-11-20', 14],
+      ['2026-11-20', 20],
       ['2026-11-21', 24],
       ['2026-11-22', 17],
     ],
   );
   assert.equal(days[1].temperatureMin, 2.5);
   assert.equal(days[1].temperatureMax, 6.5);
+  // Today counts the hours of the run since local midnight, not only those to come.
+  assert.equal(days[0].temperatureMin, 1.5, 'the low of 06:00 local, already past');
   assert.equal(currentStep(forecast, new Date('2026-11-23T00:00:00Z')), null);
 });
 
@@ -190,18 +192,15 @@ function withHours(changes) {
   return parseForecast(json);
 }
 
-test('forecast alerts: frost, storm gusts, heavy rain within 24 hours, dated by their first hour', () => {
+test('forecast alerts: frost, storm gusts, heavy rain within 24 hours, with their first hour', () => {
   const now = new Date(NOW);
-  assert.deepEqual(forecastAlerts(parseForecast(FORECAST), now, TIME_ZONE), [], 'a mild day');
+  assert.deepEqual(forecastAlerts(parseForecast(FORECAST), now), [], 'a mild day');
 
-  const frost = forecastAlerts(withHours([['temperature-2m', 20, 270.15]]), now, TIME_ZONE);
-  assert.deepEqual(frost, [
-    { kind: 'frost', key: 'frost:2026-11-21', value: -3, startsAt: '2026-11-20T23:00:00.000Z' },
-  ]);
+  const frost = forecastAlerts(withHours([['temperature-2m', 20, 270.15]]), now);
+  assert.deepEqual(frost, [{ kind: 'frost', value: -3, startsAt: '2026-11-20T23:00:00.000Z' }]);
 
-  const storm = forecastAlerts(withHours([['gust-wind-speed-10m', 25, 26.2]]), now, TIME_ZONE);
+  const storm = forecastAlerts(withHours([['gust-wind-speed-10m', 25, 26.2]]), now);
   assert.equal(storm[0].kind, 'storm');
-  assert.equal(storm[0].key, 'storm:2026-11-21');
   assert.equal(storm[0].value, 26.2);
 
   // Accumulated totals: +10 mm in each of the hours ending at 15:00, 16:00 and 17:00 UTC → 30 mm within 6 h.
@@ -210,12 +209,18 @@ test('forecast alerts: frost, storm gusts, heavy rain within 24 hours, dated by 
   for (let i = 12; i < values.length; i += 1) {
     values[i] += 10 * Math.min(i - 11, 3);
   }
-  const rain = forecastAlerts(parseForecast(json), now, TIME_ZONE);
+  const rain = forecastAlerts(parseForecast(json), now);
   assert.equal(rain.length, 1);
   assert.equal(rain[0].kind, 'heavy_rain');
   assert.equal(rain[0].startsAt, '2026-11-20T17:00:00.000Z', 'the third wet hour reaches 24 mm');
   assert.ok(rain[0].value >= 30);
 
   // Beyond 24 hours: not yet.
-  assert.deepEqual(forecastAlerts(withHours([['temperature-2m', 50, 260]]), now, TIME_ZONE), []);
+  assert.deepEqual(forecastAlerts(withHours([['temperature-2m', 50, 260]]), now), []);
+});
+
+test('calendar days are added as dates, whatever the daylight saving time', () => {
+  assert.equal(addDays('2026-03-28', 1), '2026-03-29');
+  assert.equal(addDays('2026-03-29', 1), '2026-03-30');
+  assert.equal(addDays('2026-12-31', 2), '2027-01-02');
 });

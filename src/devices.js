@@ -16,7 +16,7 @@ import {
   DEVICE_FEATURE_UNITS as U,
   DEVICE_POLL_FREQUENCIES,
 } from '@gladysassistant/integration-sdk';
-import { dailySummaries, currentStep, localDate } from './dmi/forecast.js';
+import { addDays, currentStep, dailySummaries, localDate } from './dmi/forecast.js';
 import { CONDITIONS, NAMES, pick } from './i18n.js';
 
 export const STATION_TYPE = 'station';
@@ -221,7 +221,7 @@ export function buildStationStates(gladys, station, observations, now) {
 export function daysOf(forecast, now, timeZone) {
   const summaries = dailySummaries(forecast, now, timeZone);
   const today = localDate(now, timeZone);
-  const tomorrow = localDate(new Date(now.getTime() + 86_400_000), timeZone);
+  const tomorrow = addDays(today, 1);
   return {
     today: summaries.find((day) => day.date === today) ?? null,
     tomorrow: summaries.find((day) => day.date === tomorrow && day.hours >= MIN_DAY_HOURS) ?? null,

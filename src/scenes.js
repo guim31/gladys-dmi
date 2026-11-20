@@ -10,10 +10,10 @@
 // `language` of the configuration. Values are metric.
 // -----------------------------------------------------------------------------
 
-import { dailySummaries, localDate } from './dmi/forecast.js';
+import { addDays, dailySummaries, localDate } from './dmi/forecast.js';
 import { MIN_DAY_HOURS } from './devices.js';
 import { ActionFailure } from './errors.js';
-import { CONDITIONS, TEXT, pick } from './i18n.js';
+import { CONDITIONS, STATUS, TEXT, pick } from './i18n.js';
 
 export const DAYS = ['today', 'tomorrow', 'day_after'];
 
@@ -63,6 +63,9 @@ export function summarySentence(day, dayKey, placeName, language) {
   return `${pick(DAY_NAMES, language)[dayKey]} ${text.in} ${placeName}: ${parts.filter(Boolean).join(', ')}.`;
 }
 
+const withoutMissing = (outputs) =>
+  Object.fromEntries(Object.entries(outputs).filter(([, v]) => v !== null && v !== undefined));
+
 const value = (observations, parameter) => {
   const raw = observations.values[parameter]?.value;
   return typeof raw === 'number' ? Math.round(raw * 10) / 10 : null;
@@ -84,10 +87,7 @@ export function createSceneActions(hub) {
       }
       const dayKey = DAYS.includes(fields.day) ? fields.day : 'today';
       const now = new Date(hub.now());
-      const target = localDate(
-        new Date(now.getTime() + DAYS.indexOf(dayKey) * 86_400_000),
-        hub.timeZone,
-      );
+      const target = addDays(localDate(now, hub.timeZone), DAYS.indexOf(dayKey));
       const forecast = hub.forecastOf(place);
       const day = forecast
         ? dailySummaries(forecast, now, hub.timeZone).find((summary) => summary.date === target)
@@ -97,17 +97,26 @@ export function createSceneActions(hub) {
         day.temperatureMin === null ||
         (dayKey !== 'today' && day.hours < MIN_DAY_HOURS)
       ) {
-        throw new ActionFailure(ERRORS.noForecast);
+        // Say why: DMI down or the place outside its models, rather than
+        // "no forecast for this day".
+        const error = hub.forecasts.get(place.platformId)?.error;
+        throw new ActionFailure(
+          forecast || !error
+            ? ERRORS.noForecast
+            : error.outOfArea
+              ? STATUS.outOfArea
+              : STATUS.unreachable,
+        );
       }
       const name = hub.deviceName(hub.placeId(place), place.name);
-      return {
+      return withoutMissing({
         temperature_min: day.temperatureMin,
         temperature_max: day.temperatureMax,
-        precipitation: day.precipitation ?? 0,
-        wind_gust_max: day.windGustMax ?? 0,
-        condition: pick(CONDITIONS, language())[day.condition] ?? '',
+        precipitation: day.precipitation,
+        wind_gust_max: day.windGustMax,
+        condition: pick(CONDITIONS, language())[day.condition] ?? null,
         summary: summarySentence(day, dayKey, name, language()),
-      };
+      });
     },
 
     async get_observation(fields) {
@@ -119,6 +128,7 @@ export function createSceneActions(hub) {
       if (!station) {
         throw new ActionFailure(ERRORS.noStation);
       }
+      // Not forced: a station read less than half a period ago is not read again.
       await hub.refresh({ places: [], stations: [station] });
       const observations = hub.observationsOf(station);
       const temperature = observations ? value(observations, 'temp_dry') : null;
@@ -128,15 +138,17 @@ export function createSceneActions(hub) {
       ) {
         throw new ActionFailure(ERRORS.noObservation);
       }
-      return {
+      // A value the station does not measure is left out, never 0: a scene
+      // "if the wind is below 3 m/s" must not fire on a missing value.
+      return withoutMissing({
         temperature,
-        humidity: value(observations, 'humidity') ?? 0,
-        wind_speed: value(observations, 'wind_speed') ?? 0,
-        wind_gust: value(observations, 'wind_max') ?? 0,
-        precipitation: value(observations, 'precip_past1h') ?? 0,
+        humidity: value(observations, 'humidity'),
+        wind_speed: value(observations, 'wind_speed'),
+        wind_gust: value(observations, 'wind_max'),
+        precipitation: value(observations, 'precip_past1h'),
         station: station.name,
         observed_at: observations.values.temp_dry.observed.toISOString(),
-      };
+      });
     },
   };
 }

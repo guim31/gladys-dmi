@@ -7,11 +7,10 @@
 // rain of 24 mm or more within 6 hours ("kraftig regn"). Scene filters only
 // compare for equality: the thresholds live here, not in the scene.
 //
-// An alert is announced once per kind and per local day of its first hour:
-// its key is `kind:date`, kept under /data so a restart does not repeat it.
+// When an alert is announced again is the hub's business (src/hub.js).
 // -----------------------------------------------------------------------------
 
-import { hourlySteps, localDate } from './dmi/forecast.js';
+import { hourlySteps } from './dmi/forecast.js';
 
 export const ALERT_KINDS = ['frost', 'storm', 'heavy_rain'];
 export const FROST_BELOW_C = 0;
@@ -25,10 +24,9 @@ const round1 = (value) => Math.round(value * 10) / 10;
 /**
  * @param {{ steps: object[] } | null} forecast
  * @param {Date} now
- * @param {string} [timeZone]
- * @returns {{ kind: string, key: string, value: number, startsAt: string }[]}
+ * @returns {{ kind: string, value: number, startsAt: string }[]}
  */
-export function forecastAlerts(forecast, now, timeZone) {
+export function forecastAlerts(forecast, now) {
   if (!forecast) {
     return [];
   }
@@ -37,7 +35,6 @@ export function forecastAlerts(forecast, now, timeZone) {
   const add = (kind, step, value) =>
     alerts.push({
       kind,
-      key: `${kind}:${localDate(step.time, timeZone)}`,
       value: round1(value),
       startsAt: step.time.toISOString(),
     });
@@ -50,8 +47,8 @@ export function forecastAlerts(forecast, now, timeZone) {
   if (storm) {
     add('storm', storm, Math.max(...steps.map((s) => s.windGust).filter((g) => g !== null)));
   }
-  // The first hour a 6-hour total reaches the threshold dates the alert (a
-  // stable key from one run to the next); the value is the wettest total.
+  // The first hour a 6-hour total reaches the threshold dates the alert; the
+  // value is the wettest total.
   let first = null;
   let wettest = 0;
   for (let index = 0; index < steps.length; index += 1) {

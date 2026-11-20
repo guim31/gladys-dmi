@@ -322,3 +322,67 @@ test('a new configuration re-publishes the devices and reads again', async () =>
     app.stop();
   }
 });
+
+test('two devices added at the same time are both read', async () => {
+  const { gladys, app, dmi } = await createWorld({ created: false });
+  try {
+    const [place, station] = gladys.fake.discoveredDevices;
+    dmi.calls.length = 0;
+    await Promise.all([
+      gladys.fake.deviceCreated({ ...place, id: 'p' }),
+      gladys.fake.deviceCreated({ ...station, id: 's' }),
+    ]);
+    await settle();
+    const featureIds = (device) => device.features.map((feature) => feature.external_id);
+    const published = new Set(gladys.fake.states.map((s) => s.device_feature_external_id));
+    assert.ok(
+      featureIds(place).some((id) => published.has(id)),
+      'the place',
+    );
+    assert.ok(
+      featureIds(station).every((id) => published.has(id)),
+      'the station',
+    );
+  } finally {
+    app.stop();
+  }
+});
+
+test('a frost night is announced once, across midnight; again a day later if it lasts, and after a break', async (t) => {
+  const { now } = setup(t, { logLevel: 'silent' });
+  let frost = true;
+  // Frost every hour from 20:00 to 08:00 UTC, whatever the run.
+  const dmi = createFakeDmi({
+    forecast: (model) => {
+      if (model !== 'harmonie_dini_sf') {
+        return 404;
+      }
+      const json = forecastAt(Date.now());
+      json.ranges['temperature-2m'].values = json.domain.axes.t.values.map((time) => {
+        const hour = new Date(time).getUTCHours();
+        return frost && (hour >= 20 || hour < 8) ? 271.15 : 278.15;
+      });
+      return json;
+    },
+    observations: () => observationsAt(Date.now()),
+  });
+  const { gladys, app } = await createWorld({ dmi, timers: true, now });
+  t.after(() => app.stop());
+  assert.equal(gladys.fake.sceneEvents.length, 1, 'announced at once');
+  // Through the night (midnight local included), every refresh: no repeat.
+  for (let i = 0; i < 6 * 20; i += 1) {
+    await tick(t, 10 * MINUTE);
+  }
+  assert.equal(gladys.fake.sceneEvents.length, 1);
+  // Still frosty a day after the announcement: one reminder.
+  for (let i = 0; i < 6 * 5; i += 1) {
+    await tick(t, 10 * MINUTE);
+  }
+  assert.equal(gladys.fake.sceneEvents.length, 2);
+  // The frost leaves the forecast, then comes back: a new episode.
+  frost = false;
+  await tick(t, 60 * MINUTE);
+  frost = true;
+  await tick(t, 60 * MINUTE);
+  assert.equal(gladys.fake.sceneEvents.length, 3);
+});

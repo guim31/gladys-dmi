@@ -68,7 +68,7 @@ El **dispositivo de previsión** de un lugar contiene: temperatura, humedad,
 presión, velocidad del viento, rachas, dirección del viento, nubosidad,
 precipitación de la hora (mm), el tiempo en palabras (despejado,
 parcialmente nuboso, nuboso, lluvia débil, lluvia, nieve), la mínima, la
-máxima y la precipitación de hoy (las horas restantes) y de mañana.
+máxima y la precipitación de hoy (desde el inicio de la ejecución del modelo, temprano por la mañana) y de mañana.
 
 El **dispositivo estación** contiene lo que mide la estación, entre:
 temperatura, humedad, presión a nivel del mar, velocidad del viento, rachas
@@ -93,8 +93,8 @@ Se dispara cuando la previsión de un lugar anuncia, en las próximas 24 horas:
 - **rachas de tormenta**: rachas de 24,5 m/s o más;
 - **lluvia fuerte**: 24 mm o más en 6 horas.
 
-Cada alerta se envía una vez por tipo y por día, no de nuevo tras un
-reinicio. Filtros: lugar y tipo. Variables: `kind` (`frost`, `storm`,
+Una alerta se envía cuando aparece en la previsión, de nuevo un día después
+si sigue, y nunca dos veces por un reinicio. Filtros: lugar y tipo. Variables: `kind` (`frost`, `storm`,
 `heavy_rain`), `value` (temperatura más baja en °C, racha más fuerte en m/s o
 mayor acumulado en 6 horas en mm) y `starts_at`.
 

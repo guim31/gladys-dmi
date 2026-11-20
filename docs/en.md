@@ -64,8 +64,7 @@ stations** and the **DMI model**, the most precise for Denmark.
 The **forecast device** of a place holds: temperature, humidity, pressure,
 wind speed, wind gusts, wind direction, cloud cover, precipitation of the
 hour (mm), the weather in words (clear, partly cloudy, cloudy, light rain,
-rain, snow), the low, high and precipitation of today (the hours still to
-come) and of tomorrow.
+rain, snow), the low, high and precipitation of today (since the start of the model run, early in the morning) and of tomorrow.
 
 The **station device** holds what the station measures, among: temperature,
 humidity, pressure at sea level, wind speed, gusts (highest 3-second wind of
@@ -89,7 +88,8 @@ Fired when the forecast of a place announces, within 24 hours:
 - **storm gusts**: gusts of 24.5 m/s or more;
 - **heavy rain**: 24 mm or more within 6 hours.
 
-Each alert is fired once per kind and per day, not again after a restart.
+An alert is fired when it appears in the forecast, again a day later if it
+still lasts, and never twice because of a restart.
 Filter by place and kind. Variables: `kind` (`frost`, `storm`,
 `heavy_rain`), `value` (lowest temperature in °C, strongest gust in m/s or
 largest 6-hour total in mm) and `starts_at`.

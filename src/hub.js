@@ -29,7 +29,6 @@ import {
   buildStationStates,
 } from './devices.js';
 import { createClient } from './dmi/client.js';
-import { localDate } from './dmi/forecast.js';
 import { stationFor } from './dmi/stations.js';
 import { STATUS } from './i18n.js';
 import { createIssueLog } from './issues.js';
@@ -44,6 +43,8 @@ export const TRIGGER_KEY = 'forecast_alert';
 export const STATE_HEARTBEAT_MS = 6 * 3_600_000;
 export const FORECAST_PERIOD_MS = 60 * 60_000;
 export const STATIONS_PERIOD_MS = 24 * 3_600_000;
+// An alert still in the forecast is announced again after this.
+export const ALERT_REMINDER_MS = 24 * 3_600_000;
 // A forecast older than this is not used any more.
 const MAX_FORECAST_AGE_MS = 12 * 3_600_000;
 
@@ -99,6 +100,8 @@ export class DmiHub {
   async reconfigure(config) {
     this.config = config;
     this.stopped = false;
+    // Gladys may have restarted: the status is sent again.
+    this.lastStatus = null;
     if (config.coordinatesInvalid) {
       logger.warn('The coordinates of the configuration cannot be read: they are ignored');
     }
@@ -276,7 +279,9 @@ export class DmiHub {
   async refresh(options = {}) {
     while (this.running) {
       await this.running.catch(() => {});
-      if (!options.force) {
+      // The timer's refresh just ended: it did the work. A caller with its
+      // own targets (a device just added, a scene action) runs its own.
+      if (!options.force && !options.places && !options.stations) {
         return;
       }
     }
@@ -301,7 +306,8 @@ export class DmiHub {
     if (
       this.places.length > 0 &&
       (this.stations
-        ? now - this.stationsFetchedAt >= STATIONS_PERIOD_MS
+        ? now - this.stationsFetchedAt >= STATIONS_PERIOD_MS &&
+          now - this.stationsAttemptedAt >= FORECAST_PERIOD_MS
         : due(this.stationsAttemptedAt, this.periodMs))
     ) {
       await this.readStations();
@@ -423,21 +429,27 @@ export class DmiHub {
     }
   }
 
-  /** Fire the scene trigger for every forecast alert new to a place. */
+  /**
+   * Fire the scene trigger when an alert starts: a kind absent from the
+   * previous forecast, or still there a day after it was announced (a long
+   * cold spell reminds once a day). A kind that disappears ends its episode.
+   * Kept under /data, so a restart does not repeat an alert.
+   */
   async announceAlerts(places) {
     const now = new Date(this.now());
-    const today = localDate(now, this.timeZone);
     let changed = false;
     for (const place of places) {
       const forecast = this.forecastOf(place);
       if (!forecast) {
         continue;
       }
-      // Keys of past days are forgotten; the others stay announced.
-      const previous = this.announced[place.platformId] ?? [];
-      const known = previous.filter((key) => key.split(':')[1] >= today);
-      for (const alert of forecastAlerts(forecast, now, this.timeZone)) {
-        if (known.includes(alert.key)) {
+      const stored = this.announced[place.platformId];
+      const previous = stored && !Array.isArray(stored) && typeof stored === 'object' ? stored : {};
+      const next = {};
+      for (const alert of forecastAlerts(forecast, now)) {
+        const last = previous[alert.kind];
+        if (typeof last === 'number' && now.getTime() - last < ALERT_REMINDER_MS) {
+          next[alert.kind] = last;
           continue;
         }
         try {
@@ -447,15 +459,15 @@ export class DmiHub {
             value: alert.value,
             starts_at: alert.startsAt,
           });
-          known.push(alert.key);
+          next[alert.kind] = now.getTime();
           logger.info(`${place.name}: ${alert.kind} expected (${alert.value}, ${alert.startsAt})`);
         } catch (err) {
           // Not remembered: announced again by the next refresh.
           logger.warn(`${place.name}: the alert could not reach the scenes (${err.message})`);
         }
       }
-      if (known.join() !== previous.join()) {
-        this.announced[place.platformId] = known;
+      if (JSON.stringify(next) !== JSON.stringify(stored ?? {})) {
+        this.announced[place.platformId] = next;
         changed = true;
       }
     }

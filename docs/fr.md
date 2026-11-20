@@ -70,7 +70,7 @@ L'**appareil de prévision** d'un lieu contient : température, humidité,
 pression, vitesse du vent, rafales, direction du vent, nébulosité,
 précipitations de l'heure (mm), le temps en clair (dégagé, partiellement
 nuageux, nuageux, pluie faible, pluie, neige), la minimale, la maximale et
-les précipitations d'aujourd'hui (les heures restantes) et de demain.
+les précipitations d'aujourd'hui (depuis le début du run du modèle, tôt le matin) et de demain.
 
 L'**appareil station** contient ce que la station mesure, parmi :
 température, humidité, pression au niveau de la mer, vitesse du vent,
@@ -95,8 +95,8 @@ Déclenché quand la prévision d'un lieu annonce, sous 24 heures :
 - **rafales de tempête** : des rafales de 24,5 m/s ou plus ;
 - **forte pluie** : 24 mm ou plus en 6 heures.
 
-Chaque alerte part une fois par type et par jour, pas de nouveau après un
-redémarrage. Filtres : lieu et type. Variables : `kind` (`frost`, `storm`,
+Une alerte part quand elle apparaît dans la prévision, de nouveau un jour
+plus tard si elle dure encore, et jamais deux fois à cause d'un redémarrage. Filtres : lieu et type. Variables : `kind` (`frost`, `storm`,
 `heavy_rain`), `value` (température la plus basse en °C, rafale la plus forte
 en m/s ou plus grand cumul sur 6 heures en mm) et `starts_at`.
 

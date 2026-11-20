@@ -14,7 +14,7 @@ export class Store {
     this.dir = dir;
   }
 
-  /** @returns {Promise<{ announced: Record<string, string[]> }>} */
+  /** @returns {Promise<{ announced: Record<string, Record<string, number>> }>} */
   async load() {
     try {
       const data = JSON.parse(await readFile(this.path, 'utf8'));
@@ -26,7 +26,7 @@ export class Store {
     }
   }
 
-  /** @param {{ announced: Record<string, string[]> }} data */
+  /** @param {{ announced: Record<string, Record<string, number>> }} data */
   async save(data) {
     await mkdir(this.dir, { recursive: true });
     const temporary = `${this.path}.tmp`;

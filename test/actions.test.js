@@ -69,6 +69,20 @@ test('scene action "Read the DMI forecast": one day, and its failures', async ()
   } finally {
     app.stop();
   }
+  // Outside the DMI models: said as such, not "no forecast for this day".
+  const tokyo = await createWorld({
+    config: { language: 'en' },
+    houses: [{ ...HOUSE, latitude: 35.68, longitude: 139.7 }],
+  });
+  try {
+    const ack = await tokyo.gladys.fake.sceneAction('get_forecast', {
+      device: placeOf(tokyo.devices).external_id,
+      day: 'today',
+    });
+    assert.match(failed(ack).en, /Outside the DMI forecast area/);
+  } finally {
+    tokyo.app.stop();
+  }
   // A forecast that ends tomorrow morning: nothing for the day after.
   const short = createFakeDmi();
   const world = await createWorld({ dmi: short, now: () => NOW + 30 * 3_600_000 });
@@ -93,6 +107,22 @@ test('scene action "Read the DMI station": by place or by station, and its failu
     failed(await gladys.fake.sceneAction('get_observation', { device: 'nope' }));
   } finally {
     app.stop();
+  }
+  // A station that measures no wind: the wind outputs are left out, never 0.
+  const partial = await createWorld({ config: { station: '06186' } });
+  try {
+    const ack = await partial.gladys.fake.sceneAction('get_observation', {
+      device: stationOf(partial.devices).external_id,
+    });
+    assert.equal(ack.success, true);
+    assert.deepEqual(Object.keys(ack.data.outputs).sort(), [
+      'humidity',
+      'observed_at',
+      'station',
+      'temperature',
+    ]);
+  } finally {
+    partial.app.stop();
   }
   // Old measurements only: the station stopped.
   const late = await createWorld({ now: () => NOW + 5 * 3_600_000 });

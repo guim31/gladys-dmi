@@ -69,7 +69,7 @@ Das **Vorhersagegerät** eines Orts enthält: Temperatur, Luftfeuchtigkeit,
 Luftdruck, Windgeschwindigkeit, Böen, Windrichtung, Bewölkung, Niederschlag
 der Stunde (mm), das Wetter in Worten (klar, teilweise bewölkt, bewölkt,
 leichter Regen, Regen, Schnee), Tiefst-, Höchstwert und Niederschlag von
-heute (die verbleibenden Stunden) und morgen.
+heute (seit dem Beginn des Modelllaufs, früh am Morgen) und morgen.
 
 Das **Stationsgerät** enthält, was die Station misst, aus: Temperatur,
 Luftfeuchtigkeit, Luftdruck auf Meereshöhe, Windgeschwindigkeit, Böen
@@ -96,8 +96,8 @@ ankündigt:
 - **Sturmböen**: Böen ab 24,5 m/s;
 - **Starkregen**: 24 mm oder mehr in 6 Stunden.
 
-Jeder Alarm kommt einmal pro Art und Tag, auch nach einem Neustart nicht
-erneut. Filter: Ort und Art. Variablen: `kind` (`frost`, `storm`,
+Ein Alarm kommt, sobald er in der Vorhersage erscheint, einen Tag später
+erneut, wenn er noch andauert, und nie doppelt wegen eines Neustarts. Filter: Ort und Art. Variablen: `kind` (`frost`, `storm`,
 `heavy_rain`), `value` (tiefste Temperatur in °C, stärkste Böe in m/s oder
 größte 6-Stunden-Summe in mm) und `starts_at`.
 
